@@ -1,5 +1,7 @@
 # MCP Everything
 
+**Note:** This project was extracted from https://github.com/modelcontextprotocol/servers/tree/main/src/everything to create a standalone implementation.
+
 This MCP server attempts to exercise all the features of the MCP protocol. It is not intended to be a useful server, but rather a test server for builders of MCP clients. It implements prompts, tools, resources, sampling, and more to showcase MCP capabilities.
 
 ## Installation
