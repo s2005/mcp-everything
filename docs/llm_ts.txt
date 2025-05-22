@@ -1,0 +1,89 @@
+TypeScript MCP Server (typescript/src/) Implementation Details
+=============================================================
+
+1. Overview
+-----------
+This document describes the TypeScript implementation of an MCP (Meta-Controller Protocol) server, primarily located in `typescript/src/everything.ts` and `typescript/src/index.ts`. It utilizes the `@modelcontextprotocol/sdk` library. The server's main purpose is to exercise and demonstrate a wide range of MCP features, serving as a comprehensive example.
+
+2. Core Components & Handlers
+---------------------------
+
+### Server Initialization
+- The server is an instance of the `Server` class from `@modelcontextprotocol/sdk/server/index.js`.
+- It's initialized in `createServer()` within `everything.ts` with:
+    - **Name:** "example-servers/everything"
+    - **Version:** "1.0.0"
+    - **Capabilities Object:**
+        - `prompts: {}`: Enables prompt handling.
+        - `resources: { subscribe: true }`: Enables resource handling and subscriptions.
+        - `tools: {}`: Enables tool usage.
+        - `logging: {}`: Enables logging control features.
+- **Transport:** `typescript/src/index.ts` uses `StdioServerTransport` from `@modelcontextprotocol/sdk/server/stdio.js` for communication over standard input/output. The server connects to this transport via `server.connect(transport)`.
+- **Background Task Management:**
+    - Periodic resource updates for subscriptions and periodic log message emissions are managed using `setInterval` within `createServer()`.
+    - These intervals are cleared using `clearInterval` in the `cleanup` function, which is called on `SIGINT` (e.g., Ctrl+C) to ensure graceful shutdown.
+
+### Tools
+- Tools are implemented by setting request handlers for the `CallToolRequestSchema`. A `ToolName` enum (`echo`, `add`, etc.) is used to differentiate tools within this handler.
+- The server lists its tools by handling `ListToolsRequestSchema`, returning a list of `Tool` objects.
+- **Implemented Tools:**
+    - `echo`: Echoes back the input message.
+    - `add`: Adds two numbers.
+    - `longRunningOperation`: Simulates a long operation, reporting progress using `server.notification({method: "notifications/progress", params: {progress, total, progressToken}})`.
+    - `printEnv`: Prints all server environment variables as a JSON string.
+    - `sampleLLM`: Simulates an LLM call by using `server.request(request, CreateMessageResultSchema)` to request message generation from the client. The request includes messages, system prompt, max tokens, temperature, and `includeContext: "thisServer"`.
+    - `getTinyImage`: Returns a predefined small base64 encoded PNG image (`MCP_TINY_IMAGE`) along with descriptive text.
+    - `annotatedMessage`: Demonstrates message annotations by returning text and optionally an image with different `priority` and `audience` annotations based on input.
+- **Input Schemas:** Tool input schemas are defined using the `zod` library (e.g., `EchoSchema`, `AddSchema`). These are converted to JSON schema format using `zod-to-json-schema` for the `inputSchema` field in the tool definition.
+
+### Resources
+- **Static Resource Definition:** A large array of 100 static resources (`ALL_RESOURCES`) is generated in `everything.ts`. Resources alternate between `text/plain` and `application/octet-stream` (base64 encoded blob).
+- **Listing Resources:**
+    - The server handles `ListResourcesRequestSchema` to provide paginated listings from `ALL_RESOURCES`.
+    - It supports a `cursor` (base64 encoded string representing the next start index) and `pageSize` (defaulting to `PAGE_SIZE = 10`).
+- **Reading Individual Resources:**
+    - The server handles `ReadResourceRequestSchema`. For URIs matching `test://static/resource/{id}`, it retrieves the corresponding resource from `ALL_RESOURCES` by parsing the ID.
+    - It throws an error for unknown resource URIs.
+- **Listing Resource Templates:**
+    - The server handles `ListResourceTemplatesRequestSchema` and returns a predefined template: `{ uriTemplate: "test://static/resource/{id}", name: "Static Resource", ... }`.
+
+### Prompts
+- **`PromptName` Enum:** A `PromptName` enum (`SIMPLE`, `COMPLEX`) is defined for symbolic prompt identification.
+- **Listing Prompts:**
+    - The server handles `ListPromptsRequestSchema`, returning definitions for `PromptName.SIMPLE` (no arguments) and `PromptName.COMPLEX` (with "temperature" and "style" arguments).
+- **Getting Prompts:**
+    - The server handles `GetPromptRequestSchema`.
+    - For `PromptName.SIMPLE`, it returns a `UserMessage` with static text.
+    - For `PromptName.COMPLEX`, it processes `temperature` and `style` arguments and returns a sequence of messages: a `UserMessage` showing the arguments, an `AssistantMessage` acknowledging them, and a `UserMessage` containing the `MCP_TINY_IMAGE`.
+    - It throws an error for unknown prompt names.
+- **Message Structure:** Prompts are returned as a dictionary `{"messages": [...]}` where the array contains message objects with `role`, `content` (including `type`, `text` or `data`, `mimeType`).
+
+### Subscriptions
+- **Subscribe/Unsubscribe:**
+    - The server handles `SubscribeRequestSchema` by adding the requested `uri` to an internal `subscriptions` set. It also triggers a `requestSampling` call to the client upon a new subscription.
+    - It handles `UnsubscribeRequestSchema` by removing the `uri` from the `subscriptions` set.
+- **Periodic Updates:** An interval timer (`subsUpdateInterval`) is set up to iterate through the `subscriptions` set every 5 seconds and send a `notifications/resources/updated` notification for each URI via `server.notification()`.
+
+### Argument Completion
+- **`EXAMPLE_COMPLETIONS`:** A constant object `EXAMPLE_COMPLETIONS` stores arrays of sample completion strings for argument names like "style", "temperature", and "resourceId".
+- **Completion Handler:**
+    - The server handles `CompleteRequestSchema`.
+    - The logic in `everything.ts` filters `EXAMPLE_COMPLETIONS[argument.name]` based on `argument.value` if `argument.name` is a key in `EXAMPLE_COMPLETIONS`.
+    - For `ref.type === "ref/resource"`, it specifically filters `EXAMPLE_COMPLETIONS.resourceId` based on `argument.value` (which is assumed to be the partial ID).
+    - For `ref.type === "ref/prompt"`, it filters the list associated with `argument.name` from `EXAMPLE_COMPLETIONS`.
+    - It returns completions in the format `{"completion": {"values": [...], "hasMore": false, "total": ...}}`.
+
+### Logging Control
+- **Setting Log Level:**
+    - The server handles `SetLevelRequestSchema`. It updates an internal `logLevel` variable (defaulting to "debug").
+    - It sends a notification back to the client confirming the log level change.
+- **Periodic Log Messages:**
+    - An `isMessageIgnored(level: LoggingLevel)` helper function compares the message level against the current `logLevel` using a predefined order of log severities (similar to `LOG_LEVEL_ORDER` in Python).
+    - An interval timer (`logsUpdateInterval`) is set up to run every 15 seconds. It randomly selects a message from a predefined `messages` array (each with a "level" and "data").
+    - If the message is not ignored by `isMessageIgnored`, it's sent to the client via `server.notification({ method: "notifications/message", params: ... })`.
+
+3. Running the Server
+--------------------
+- The server is typically run using npm scripts defined in `package.json`, such as `npm start` or `npm run dev`. These scripts usually compile the TypeScript to JavaScript (e.g., into a `dist` directory) and then run `node dist/index.js`.
+- The `index.ts` script sets up the `StdioServerTransport` and initiates the `EverythingServer`.
+- Cleanup of background tasks (intervals) is handled on `SIGINT` to ensure the server exits cleanly.
