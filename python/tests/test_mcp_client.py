@@ -17,7 +17,7 @@ except ImportError:
         sys.path.insert(0, PYTHON_DIR_PATH)
     from mcp_client import call_echo_tool
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_successful_echo():
     """
     Tests the call_echo_tool function by starting the mcp_server.py,
