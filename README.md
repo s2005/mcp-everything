@@ -199,7 +199,7 @@ Replace `"path/to/mcp-everything/typescript"` with the correct path.
     ```
 3.  Install dependencies:
     ```bash
-    pip install "mcp[cli]"
+    pip install -r requirements.txt
     ```
 
 ### Running the Server
