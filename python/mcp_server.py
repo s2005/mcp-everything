@@ -131,14 +131,18 @@ async def main():
     @asynccontextmanager
     async def app_lifespan(app: FastMCP):
         nonlocal subs_update_interval_task, logs_update_interval_task
+        print("[SERVER_LOG][LIFESPAN] Startup: Entered app_lifespan.", flush=True)
         
         # Startup
         subs_update_interval_task = asyncio.create_task(notify_resource_updates(app))
         logs_update_interval_task = asyncio.create_task(notify_log_messages(app))
+        print("[SERVER_LOG][LIFESPAN] Startup: Background tasks created.", flush=True)
         
         try:
             yield
+            print("[SERVER_LOG][LIFESPAN] Normal execution, pre-shutdown.", flush=True)
         finally:
+            print("[SERVER_LOG][LIFESPAN] Shutdown: Entered finally block.", flush=True)
             # Shutdown
             tasks_to_cancel = []
             if subs_update_interval_task:
@@ -150,6 +154,8 @@ async def main():
             
             if tasks_to_cancel:
                 await asyncio.gather(*tasks_to_cancel, return_exceptions=True)
+                print("[SERVER_LOG][LIFESPAN] Shutdown: Background tasks gathered.", flush=True)
+            print("[SERVER_LOG][LIFESPAN] Shutdown: app_lifespan cleanup complete.", flush=True)
 
 
     server = FastMCP(
@@ -364,7 +370,14 @@ async def main():
         subscriptions.discard(uri)
         await ctx.info(f"Client unsubscribed from resource: {uri}")
 
-    await server.run()
+    print("[SERVER_LOG] Server setup complete. Attempting to start server.run()...", flush=True)
+    try:
+        await server.run()
+        print("[SERVER_LOG] server.run() completed.", flush=True) # Might not be reached if it blocks
+    except Exception as e:
+        print(f"[SERVER_LOG] Exception from server.run(): {e}", flush=True)
+    finally:
+        print("[SERVER_LOG] main() function is exiting.", flush=True)
 
 if __name__ == "__main__":
     asyncio.run(main())
