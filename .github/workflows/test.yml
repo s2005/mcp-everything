@@ -1,45 +1,29 @@
 name: Python MCP Tests
 
-on:
-  push:
-    branches: [ main ] # Or your primary branch, e.g., master
-  pull_request:
-    branches: [ main ] # Or your primary branch
+on: push
 
 jobs:
   test:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11'] # Test against a few Python versions
-
+        python-version: ['3.8', '3.9', '3.10', '3.11']
     steps:
     - name: Check out code
       uses: actions/checkout@v3
-
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-
     - name: Install dependencies
       run: |
         python -m venv .venv
         source .venv/bin/activate
         pip install -r python/requirements.txt
-    
     - name: Run pytest
       run: |
         source .venv/bin/activate
-        # Run pytest from the 'python' directory so that
-        # mcp_client can be imported directly by the tests
-        # and mcp_server.py can be found easily by the client/tests.
         cd python
-        pytest 
-        # Alternatively, if tests need to be run from root:
-        # python -m pytest python/tests/
+        pytest
       env:
-        PYTHONPATH: ${{ github.workspace }}/python # Ensure python directory is in PYTHONPATH if running pytest from root
-                                                # and using imports like 'from mcp_client import ...'
-                                                # Not strictly needed if cd'ing into python/
+        PYTHONPATH: ${{ github.workspace }}/python
