@@ -1,0 +1,80 @@
+Python MCP Server (python/mcp_server.py) Implementation Details
+==============================================================
+
+1. Overview
+-----------
+This document describes the Python implementation of an MCP (Meta-Controller Protocol) server, located in `python/mcp_server.py`. It utilizes the `FastMCP` library from the Python MCP SDK. The server's primary purpose is to exercise and demonstrate various features of the MCP, serving as a comprehensive example.
+
+2. Core Components & Handlers
+---------------------------
+
+### Server Initialization
+The server is an instance of `mcp.server.fast_mcp.FastMCP`. It's initialized within the `async def main()` function with the following key parameters:
+- **Name:** "python-mcp-everything"
+- **Version:** "0.1.0"
+- **Capabilities:** A dictionary specifying supported features:
+    - `prompts: {}`: Indicates basic prompt handling is enabled.
+    - `resources: {"subscribe": True}`: Indicates resource handling and subscriptions are enabled.
+    - `logging: {}`: Indicates logging control features are enabled.
+- **Lifespan Manager (`lifespan`):** An `asynccontextmanager` named `app_lifespan` is provided. This manager handles the startup and shutdown of background tasks, specifically:
+    - `notify_resource_updates`: For periodic resource update notifications.
+    - `notify_log_messages`: For periodic log message emissions.
+
+### Tools
+Tools are defined as functions decorated with `@server.tool()`. Input schemas for tool arguments are implicitly defined by Python type hints in the function signatures.
+
+Implemented tools include:
+- **`echo(message: str) -> str`**: Returns the input message prefixed with "Echo: ".
+- **`add(a: int, b: int) -> str`**: Returns a string describing the sum of two integers.
+- **`long_running_operation(duration: int = 10, steps: int = 5, ctx: Context = None) -> str`**: An async tool that simulates a long operation. It uses `ctx.report_progress(current_step, total_steps)` to send progress updates to the client.
+- **`print_env() -> str`**: Returns a JSON string containing all environment variables of the server.
+- **`sample_llm(prompt: str, max_tokens: int = 100, ctx: Context = None) -> str`**: An async tool that simulates an LLM call. It uses `ctx.create_message(messages=[UserMessage(...)], max_tokens=...)` to request a message generation from the client (acting as the LLM). It then extracts and returns the text content from the response.
+- **`get_tiny_image() -> list`**: Returns a list of content parts, including `TextContent` and an `ImageContent` part containing a base64 encoded tiny PNG image (defined by the `MCP_TINY_IMAGE` constant from `python/constants.py`).
+- **`annotated_message(message_type: str, include_image: bool = False) -> list`**: Returns a list of content parts (`TextContent` and optionally `ImageContent`) with custom annotations (dictionary format) for priority and audience, based on the `message_type` argument.
+
+The `Context` object (`ctx`), when provided by the SDK to a tool, allows interaction with the MCP client, such as reporting progress or creating messages.
+
+### Resources
+The server manages a predefined list of static resources.
+- **Static Resource Definition:** Resources are defined in a module-level list called `ALL_RESOURCES`. Each resource is a dictionary specifying `uri`, `name`, `mime_type`, and either `text` (for text-based content) or `blob` (for base64 encoded binary content).
+- **Reading Individual Resources:** The `get_static_resource(resource_id: str, ctx: Context = None) -> dict` function, decorated with `@server.resource("test://static/resource/{resource_id}")`, handles requests for individual static resources. It looks up the resource by its URI (constructed from the `resource_id`) in the `ALL_RESOURCES` list and returns it, or raises a `ValueError` if not found.
+- **Listing Resources with Pagination:** The `list_all_static_resources(cursor: str | None, page_size: int, ctx: Context) -> tuple[list[dict], str | None]` function provides paginated listing of resources from `ALL_RESOURCES`. This handler is registered with the server using `server.set_list_resources_handler(list_all_static_resources, prefix="test://static/resource/")`. It uses base64 encoded cursors (representing the next start index) to manage pagination.
+- **Listing Resource Templates:** The `list_resource_templates_handler(ctx: Context = None) -> list` function, decorated with `@server.list_resource_templates_handler()`, returns a list of defined resource templates. Currently, it defines one template for accessing the static resources: `"test://static/resource/{resource_id}"`.
+
+### Prompts
+Prompt handling allows clients to request pre-defined message structures.
+- **`PromptName` Enum:** A module-level `Enum` (`PromptName`) defines symbolic names for available prompts (e.g., `SIMPLE = "simple_prompt"`).
+- **Listing Prompts:** The `list_prompts_handler(ctx: Context = None) -> list` function, decorated with `@server.list_prompts_handler()`, returns a list of available prompt definitions. Each definition includes its `name` (from `PromptName.value`), `description`, and `arguments` schema.
+- **Getting Prompts:** The `get_prompt_handler(name: str, arguments: dict | None, ctx: Context) -> dict` function, decorated with `@server.get_prompt_handler()`, constructs and returns a specific prompt based on the requested `name` and provided `arguments`.
+    - For `PromptName.SIMPLE.value`, it returns a single `UserMessage` with `TextContent`.
+    - For `PromptName.COMPLEX.value`, it processes `temperature` and `style` arguments and returns a sequence of messages including `UserMessage` with `TextContent`, `AssistantMessage` with `TextContent`, and a `UserMessage` with `ImageContent` (using `MCP_TINY_IMAGE`).
+    - It raises a `ValueError` for unknown prompt names.
+- **Message Construction:** Prompts are constructed as dictionaries containing a "messages" key, with a list of `UserMessage`, `AssistantMessage`, etc., objects. Content parts like `TextContent` and `ImageContent` are used within these messages.
+
+### Subscriptions
+The server supports client subscriptions to resources and notifies them of updates.
+- **Subscribe/Unsubscribe Handlers:**
+    - `subscribe_handler(uri: str, ctx: Context)`, decorated with `@server.subscribe_handler()`, adds the given `uri` to an internal `subscriptions` set and logs the event.
+    - `unsubscribe_handler(uri: str, ctx: Context)`, decorated with `@server.unsubscribe_handler()`, removes the `uri` from the `subscriptions` set and logs the event.
+- **Periodic Resource Updates:** The `notify_resource_updates(server_ref: FastMCP)` async function runs as a background task. Every 5 seconds, it iterates through the active `subscriptions` and calls `await server_ref.notify_resource_updated(uri)` for each, signaling to the client that the resource may have changed. This task is managed by the `app_lifespan` context manager.
+
+### Argument Completion
+The server provides completion suggestions for specific arguments.
+- **Completion Handler Definition:** The `completion_handler(ref: dict, argument: dict, ctx: Context = None) -> dict` function, decorated with `@server.completion_handler()`, is responsible for providing completions.
+- **`EXAMPLE_COMPLETIONS`:** A module-level dictionary `EXAMPLE_COMPLETIONS` stores lists of possible completion values for specific argument names (e.g., "style", "temperature", "resourceId").
+- **Logic:** The handler retrieves the `argument.name` and `argument.value` (the partially typed value). If `argument.name` is a key in `EXAMPLE_COMPLETIONS`, it filters the corresponding list for items starting with `argument.value` (case-insensitive) and returns these as suggestions. The returned structure is `{"completion": {"values": [...], "has_more": False, "total": ...}}`.
+
+### Logging Control
+The server allows clients to set the logging level and periodically sends log messages.
+- **Logging Level Setting:** The `set_logging_level_handler(level: str, ctx: Context)` function, decorated with `@server.set_logging_level_handler()`, allows clients to set the server's current `log_level`. It updates an internal `log_level` variable and notifies the client of the change.
+- **Periodic Log Messages:**
+    - `LOG_LEVEL_ORDER` (list of strings) and `LOG_MESSAGES` (list of predefined log message dicts with "level" and "data") are defined at the module level.
+    - `is_message_ignored(current_level_str, message_level_str)` is a helper function that determines if a message should be ignored based on the current `log_level` and the `LOG_LEVEL_ORDER`.
+    - The `notify_log_messages(server_ref: FastMCP)` async function runs as a background task (managed by `app_lifespan`). Every 15 seconds, it randomly selects a message from `LOG_MESSAGES`. If the message's level is not ignored by the current `log_level`, it sends the message to the client using `await server_ref.notify_message(...)`.
+
+3. Running the Server
+--------------------
+The server is executed by running the Python script directly:
+`python python/mcp_server.py`
+
+Inside the script, after all definitions and registrations, `server.run()` is called within the `if __name__ == "__main__": asyncio.run(main())` block, which starts the FastMCP server and makes it listen for client connections over stdio.

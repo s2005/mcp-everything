@@ -2,66 +2,9 @@
 
 **Note:** This project was extracted from https://github.com/modelcontextprotocol/servers/tree/main/src/everything to create a standalone implementation.
 
-This MCP server attempts to exercise all the features of the MCP protocol. It is not intended to be a useful server, but rather a test server for builders of MCP clients. It implements prompts, tools, resources, sampling, and more to showcase MCP capabilities.
+This MCP server project demonstrates various features of the Model Context Protocol (MCP). It includes server implementations in TypeScript and Python, serving as test servers for MCP client builders. Both implementations aim for functional parity, showcasing capabilities like prompts, tools, resources, sampling, logging, and more.
 
-## Installation
-
-### Local Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/modelcontextprotocol/mcp-everything.git
-cd mcp-everything
-
-# Install dependencies
-npm install
-
-# Build the project
-npm run build
-
-# Start the server
-npm start
-```
-
-### Global Installation
-
-```bash
-# Install globally from npm
-npm install -g mcp-everything
-
-# Run the server
-mcp-everything
-```
-
-### Docker
-
-```bash
-# Build the Docker image
-docker build -t mcp-everything .
-
-# Run the container
-docker run -it mcp-everything
-```
-
-## Usage with Claude Desktop
-
-Add to your `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "everything": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-everything"
-      ]
-    }
-  }
-}
-```
-
-## Components
+## Common Features
 
 ### Tools
 
@@ -147,3 +90,138 @@ Resource features:
 ### Logging
 
 The server sends random-leveled log messages every 15 seconds to demonstrate the logging capabilities of MCP.
+
+## TypeScript Implementation
+
+**Location:** `typescript/`
+
+### Installation
+
+#### Local Development
+
+```bash
+# Clone the repository (if not already done)
+# git clone https://github.com/modelcontextprotocol/mcp-everything.git
+# cd mcp-everything
+
+# Navigate to the TypeScript directory from the repository root
+cd typescript
+
+# Install dependencies
+npm install
+
+# Build the project
+npm run build
+
+# Start the server
+npm start
+```
+
+#### Global Installation
+
+```bash
+# Navigate to the TypeScript directory:
+# cd path/to/mcp-everything/typescript
+# Then install globally from the local package:
+npm install -g .
+
+# Run the server 
+# (The command name will depend on the 'bin' field in typescript/package.json, 
+#  e.g., 'mcp-everything-ts' or 'mcp-everything' if modified)
+# Example:
+# mcp-everything-ts
+```
+*Note: Global installation functionality and the exact command depend on the `bin` configuration within `typescript/package.json`.*
+
+#### Docker
+
+```bash
+# Build the Docker image from the repository root
+# (Assumes Dockerfile is updated to handle APP_DIR build argument or typescript context)
+docker build -t mcp-everything-ts -f Dockerfile . --build-arg APP_DIR=typescript
+
+# Run the container
+docker run -it mcp-everything-ts
+```
+
+### Usage with MCP Clients (e.g., Claude Desktop)
+
+Add to your client's MCP server configuration. Paths might need adjustment.
+
+If using `npx` with a published package (e.g., `mcp-everything-ts`):
+```json
+{
+  "mcpServers": {
+    "everything-ts-npx": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-everything-ts" 
+        // Replace 'mcp-everything-ts' with the actual package name if different
+      ]
+    }
+  }
+}
+```
+If running from a local build (ensure `cwd` is the `typescript` directory):
+```json
+{
+  "mcpServers": {
+    "everything-ts-local": {
+      "command": "npm",
+      "args": [
+        "start"
+      ],
+      // Ensure 'cwd' points to the 'typescript' directory of this project.
+      "cwd": "path/to/mcp-everything/typescript" 
+    }
+  }
+}
+```
+Replace `"path/to/mcp-everything/typescript"` with the correct path.
+
+---
+
+## Python Implementation
+
+**Location:** `python/`
+
+### Installation & Setup
+
+1.  From the repository root, navigate to the Python directory:
+    ```bash
+    cd python
+    ```
+2.  (Recommended) Create and activate a virtual environment:
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # On Windows: venv\Scripts\activate
+    ```
+3.  Install dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+### Running the Server
+
+From within the `python` directory (and with the virtual environment activated if used):
+```bash
+python mcp_server.py
+```
+The server listens for MCP messages over stdio.
+
+### Usage with MCP Clients (e.g., Claude Desktop)
+
+Example configuration:
+```json
+{
+  "mcpServers": {
+    "everything-py": {
+      "command": "python", // Or "path/to/python/venv/bin/python"
+      "args": ["mcp_server.py"],
+      "cwd": "path/to/mcp-everything/python" // Ensure this is the correct path
+    }
+  }
+}
+```
+Replace `"path/to/mcp-everything/python"` with the correct path.
