@@ -225,3 +225,10 @@ Example configuration:
 }
 ```
 Replace `"path/to/mcp-everything/python"` with the correct path.
+
+### Testing the Server via GitHub Actions
+
+>**Note:** Implementation is in progress. The server is not yet fully functional.
+
+- Test 1
+- Test 2
