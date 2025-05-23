@@ -41,7 +41,7 @@ async def test_successful_echo():
 
     try:
         async with stdio_client(server_params) as (reader, writer):
-            async with ClientSession(reader=reader, writer=writer, client_name="pytest-mcp-client") as session:
+            async with ClientSession(reader, writer, client_name="pytest-mcp-client") as session:
                 await session.initialize(server_capabilities={})
                 actual_response = await call_echo_tool(session, test_message)
                 
