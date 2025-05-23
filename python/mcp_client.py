@@ -3,7 +3,7 @@ import sys
 from mcp.client.stdio import stdio_client
 from mcp import StdioServerParameters # Changed import
 from mcp.client.session import ClientSession
-from mcp.common.types import TextContent
+from mcp.types import TextContent
 
 
 async def call_echo_tool(session: ClientSession, message: str) -> str:
