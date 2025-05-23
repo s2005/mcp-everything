@@ -24,6 +24,6 @@ jobs:
       run: |
         source .venv/bin/activate
         cd python
-        pytest
+        pytest --timeout=120
       env:
         PYTHONPATH: ${{ github.workspace }}/python
