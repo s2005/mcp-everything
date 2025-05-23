@@ -19,6 +19,7 @@ except ImportError:
 
 @pytest.mark.anyio
 async def test_successful_echo():
+    print("[TEST_ENTRY_LOG] test_successful_echo function started.", flush=True)
     """
     Tests the call_echo_tool function by starting the mcp_server.py,
     sending a message, and asserting the echoed response.
