@@ -40,7 +40,7 @@ async def main():
             print("Connected to server's stdio. Initializing client session...")
             async with ClientSession(reader, writer) as session:
                 print("Client session started. Initializing MCP session...")
-                init_response = await session.initialize(server_capabilities={})
+                init_response = await session.initialize()
                 if init_response and init_response.server_info:
                     print(f"Server initialized: Name={init_response.server_info.name}, Version={init_response.server_info.version}")
                 else:
