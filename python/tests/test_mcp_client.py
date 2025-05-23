@@ -40,10 +40,17 @@ async def test_successful_echo():
     actual_response = None
 
     try:
+        print("[TEST_LOG] Attempting to enter stdio_client context...", flush=True)
         async with stdio_client(server_params) as (reader, writer):
+            print("[TEST_LOG] Entered stdio_client context. Attempting to enter ClientSession context...", flush=True)
             async with ClientSession(reader, writer) as session:
+                print("[TEST_LOG] Entered ClientSession context. Attempting to initialize session...", flush=True)
                 await session.initialize()
+                print("[TEST_LOG] Session initialized. Attempting to call_echo_tool...", flush=True)
                 actual_response = await call_echo_tool(session, test_message)
+                print(f"[TEST_LOG] call_echo_tool returned: {actual_response}", flush=True)
+            print("[TEST_LOG] Exited ClientSession context.", flush=True)
+        print("[TEST_LOG] Exited stdio_client context.", flush=True)
                 
     except FileNotFoundError:
         pytest.fail(f"Server script 'mcp_server.py' not found in CWD: {server_cwd}. sys.executable: {python_executable}")

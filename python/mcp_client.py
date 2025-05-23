@@ -8,22 +8,27 @@ from mcp.types import TextContent
 
 async def call_echo_tool(session: ClientSession, message: str) -> str:
     """Calls the 'echo' tool on the server and returns the text response."""
+    print(f"[CLIENT_LOG] Attempting to call 'echo' tool with message: '{message}'", flush=True)
     try:
         tool_result = await session.call_tool(name="echo", arguments={"message": message})
+        print(f"[CLIENT_LOG] 'echo' tool raw result: {tool_result}", flush=True)
         if tool_result.content and isinstance(tool_result.content, list) and len(tool_result.content) > 0:
             first_content = tool_result.content[0]
             if isinstance(first_content, TextContent) and hasattr(first_content, 'text'):
+                print("[CLIENT_LOG] Parsed TextContent from 'echo' tool.", flush=True)
                 return first_content.text
             elif isinstance(first_content, dict) and 'text' in first_content:
+                print("[CLIENT_LOG] Parsed dict from 'echo' tool.", flush=True)
                 return first_content['text']
             elif isinstance(first_content, str):
+                print("[CLIENT_LOG] Parsed str from 'echo' tool.", flush=True)
                 return first_content
         error_message = f"Error: Could not parse echo tool result or result was empty. Result: {tool_result}"
-        print(error_message, file=sys.stderr)
+        print(error_message, file=sys.stderr, flush=True)
         return error_message
     except Exception as e:
         error_detail = f"Exception during 'echo' tool call: {e}"
-        print(error_detail, file=sys.stderr)
+        print(error_detail, file=sys.stderr, flush=True)
         return error_detail
 
 
