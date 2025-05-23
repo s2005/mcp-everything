@@ -38,7 +38,7 @@ async def main():
         print("Attempting to start and connect to MCP server...")
         async with stdio_client(server_params) as (reader, writer):
             print("Connected to server's stdio. Initializing client session...")
-            async with ClientSession(reader=reader, writer=writer, client_name="python-mcp-client") as session:
+            async with ClientSession(reader, writer, client_name="python-mcp-client") as session:
                 print("Client session started. Initializing MCP session...")
                 init_response = await session.initialize(server_capabilities={})
                 if init_response and init_response.server_info:
